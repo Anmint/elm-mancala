@@ -181,13 +181,22 @@ viewStage model =
 
 viewSpreadField : Model -> Element Msg
 viewSpreadField model =
-    row [ explain Debug.todo, width (fillPortion 6), height fill ]
-        (List.map (viewColumn model) (List.range 1 6))
+    column [ explain Debug.todo, width (fillPortion 6), height fill ]
+        (List.map (viewColumn model) [ Opposite, Myself ])
 
 
-viewColumn : Model -> Int -> Element Msg
-viewColumn model position =
-    column [ explain Debug.todo, width fill, height fill ] [ viewCell model (14 - position), viewCell model position ]
+viewColumn : Model -> Player -> Element Msg
+viewColumn model player =
+    let
+        targetList =
+            case player of
+                Myself ->
+                    List.range 1 6
+
+                Opposite ->
+                    List.range 8 13 |> List.reverse
+    in
+    row [ explain Debug.todo, width fill, height fill ] (List.map (viewCell model) targetList)
 
 
 viewCell : Model -> Int -> Element Msg
