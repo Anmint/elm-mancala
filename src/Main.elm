@@ -3,8 +3,6 @@ module Main exposing (main)
 import Array exposing (Array)
 import Browser
 import Element exposing (..)
-import Element.Background as Bg
-import Element.Border as Border
 import Element.Events as Events
 import Element.Font as Font
 import Html exposing (Html)
@@ -22,7 +20,10 @@ type Winner
 
 
 type alias Stage =
-    { turn : Player, field : Array Int, winner : Winner }
+    { turn : Player
+    , field : Array Int
+    , winner : Winner
+    }
 
 
 type alias Model =
@@ -94,27 +95,24 @@ checkWinner field =
 
 makeSpread : Int -> Int -> List Int
 makeSpread position num =
+    let
+        spreadList =
+            List.repeat 14 0
+    in
     if modBy 7 position == 0 then
-        List.repeat 14 0
+        spreadList
+        -- If makeSpread occur at kalaha hole, make zero array. (Just in case)
 
     else
         List.indexedMap
             (\i n ->
-                if (position + modBy 14 num >= 14) && (i <= modBy 14 (position + modBy 14 num)) then
-                    n + 1
+                if modBy 14 (i - position) <= modBy 14 num && modBy 14 (i - position) /= 0 then
+                    n + 1 + num // 14
 
                 else
-                    n
+                    n + num // 14
             )
-            (List.repeat 14 (num // 14))
-            |> List.indexedMap
-                (\i n ->
-                    if (position < i) && (i <= position + modBy 14 num) then
-                        n + 1
-
-                    else
-                        n
-                )
+            spreadList
 
 
 nextTurn : Int -> Int -> Player -> Player
@@ -177,30 +175,7 @@ viewStage model =
             , viewSpreadField model
             , viewPointCell model Myself
             ]
-        , el [ centerX, Font.size 32 ]
-            (text <|
-                case model.winner of
-                    Playing ->
-                        (if model.turn == Myself then
-                            "わたしの"
-
-                         else
-                            "相手の"
-                        )
-                            ++ "ターンです"
-
-                    Draw ->
-                        "引き分けでした〜"
-
-                    End player ->
-                        (if player == Myself then
-                            "わたしの"
-
-                         else
-                            "相手の"
-                        )
-                            ++ "勝ちです"
-            )
+        , viewProgressDesc model
         ]
 
 
@@ -220,7 +195,7 @@ viewCell model position =
     let
         onClick =
             case model.winner of
-                End player ->
+                End _ ->
                     Events.onClick NoOp
 
                 Draw ->
@@ -244,6 +219,34 @@ viewPointCell model player =
 
         Opposite ->
             column [ height (fill |> minimum 100), width (fillPortion 1 |> minimum 50) ] [ el [ centerX, centerY ] (text <| String.fromInt <| getAtStone 0 model) ]
+
+
+viewProgressDesc : Model -> Element Msg
+viewProgressDesc model =
+    el [ centerX, Font.size 32 ]
+        (text <|
+            case model.winner of
+                Playing ->
+                    (if model.turn == Myself then
+                        "わたしの"
+
+                     else
+                        "相手の"
+                    )
+                        ++ "ターンです"
+
+                Draw ->
+                    "引き分けでした〜"
+
+                End player ->
+                    (if player == Myself then
+                        "わたしの"
+
+                     else
+                        "相手の"
+                    )
+                        ++ "勝ちです"
+        )
 
 
 main : Program () Model Msg
