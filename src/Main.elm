@@ -3,6 +3,7 @@ module Main exposing (main)
 import Array exposing (Array)
 import Browser
 import Element exposing (..)
+import Element.Background as Bg
 import Element.Events as Events
 import Element.Font as Font
 import Html exposing (Html)
@@ -211,13 +212,28 @@ viewCell model position =
                     Events.onClick NoOp
 
                 Playing ->
-                    if ((model.turn == Myself) && (position <= 6)) || ((model.turn == Opposite) && (position >= 8)) then
+                    if ((model.turn == Myself) && (position <= 6) && getAtStone position model /= 0) || ((model.turn == Opposite) && (position >= 8) && getAtStone position model /= 0) then
                         Events.onClick (Spread position)
 
                     else
                         Events.onClick NoOp
+
+        spreadable =
+            case model.winner of
+                End _ ->
+                    mouseOver []
+
+                Draw ->
+                    mouseOver []
+
+                Playing ->
+                    if ((model.turn == Myself) && (position <= 6) && getAtStone position model /= 0) || ((model.turn == Opposite) && (position >= 8) && getAtStone position model /= 0) then
+                        mouseOver [ Bg.color (rgba 1 0.2 0.3 0.5) ]
+
+                    else
+                        mouseOver []
     in
-    column [ height (fill |> minimum 50), width (fill |> minimum 50), onClick ] [ el [ centerX, centerY ] (text <| String.fromInt <| getAtStone position model) ]
+    column [ height (fill |> minimum 50), width (fill |> minimum 50), onClick, spreadable ] [ el [ centerX, centerY ] (text <| String.fromInt <| getAtStone position model) ]
 
 
 viewPointCell : Model -> Player -> Element Msg
