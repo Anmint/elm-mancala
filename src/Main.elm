@@ -43,9 +43,10 @@ spreadStone position stage =
             getAtStone position stage
 
         newfield =
-            Array.set position 0 stage.field
+            stage.field
                 |> Array.toList
-                |> List.map2 (+) (makeSpread position num)
+                |> List.map2 (+) (makeSpread position stage)
+                |> List.map2 (+) (makeCapture position stage)
                 |> Array.fromList
     in
     if num == 0 then
@@ -53,6 +54,68 @@ spreadStone position stage =
 
     else
         { stage | turn = nextTurn num position stage.turn, field = newfield, winner = checkWinner newfield }
+
+
+makeSpread : Int -> Stage -> List Int
+makeSpread position stage =
+    let
+        num =
+            getAtStone position stage
+
+        spreadList =
+            List.repeat 14 0
+    in
+    if modBy 7 position == 0 then
+        spreadList
+        -- If makeSpread occur at kalaha hole, make zero array. (Just in case)
+
+    else
+        List.indexedMap
+            (\i n ->
+                if modBy 14 (i - position) <= modBy 14 num && modBy 14 (i - position) /= 0 then
+                    n + 1 + num // 14
+
+                else
+                    n + num // 14
+            )
+            (spreadList |> Array.fromList |> Array.set position (-1 * num) |> Array.toList)
+
+
+makeCapture : Int -> Stage -> List Int
+makeCapture position stage =
+    let
+        num =
+            getAtStone position stage
+
+        lastPosition =
+            modBy 14 (getAtStone position stage + position)
+
+        capturedList =
+            List.repeat 14 0
+    in
+    let
+        oppositeStone =
+            getAtStone (14 - lastPosition) stage
+    in
+    if num == 0 || num > 14 then
+        capturedList
+
+    else if stage.turn == Myself && lastPosition >= 1 && lastPosition <= 6 && getAtStone lastPosition stage == 0 then
+        capturedList
+            |> Array.fromList
+            |> Array.set 7 oppositeStone
+            |> Array.set (14 - lastPosition) (-1 * oppositeStone)
+            |> Array.toList
+
+    else if stage.turn == Opposite && lastPosition >= 8 && lastPosition <= 13 && getAtStone lastPosition stage == 0 then
+        capturedList
+            |> Array.fromList
+            |> Array.set 0 oppositeStone
+            |> Array.set (14 - lastPosition) (-1 * oppositeStone)
+            |> Array.toList
+
+    else
+        capturedList
 
 
 checkWinner : Array Int -> Winner
@@ -92,28 +155,6 @@ checkWinner field =
 
     else
         Playing
-
-
-makeSpread : Int -> Int -> List Int
-makeSpread position num =
-    let
-        spreadList =
-            List.repeat 14 0
-    in
-    if modBy 7 position == 0 then
-        spreadList
-        -- If makeSpread occur at kalaha hole, make zero array. (Just in case)
-
-    else
-        List.indexedMap
-            (\i n ->
-                if modBy 14 (i - position) <= modBy 14 num && modBy 14 (i - position) /= 0 then
-                    n + 1 + num // 14
-
-                else
-                    n + num // 14
-            )
-            spreadList
 
 
 nextTurn : Int -> Int -> Player -> Player
