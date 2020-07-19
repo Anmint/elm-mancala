@@ -1,10 +1,9 @@
-module Main exposing (main)
+module Main exposing (..)
 
 import Array exposing (Array)
 import Browser
 import Element exposing (..)
 import Element.Background as Bg
-import Element.Border as Border
 import Element.Events as Events
 import Element.Font as Font
 import Html exposing (Html)
@@ -22,7 +21,10 @@ type Winner
 
 
 type alias Stage =
-    { turn : Player, field : Array Int, winner : Winner }
+    { turn : Player
+    , field : Array Int
+    , winner : Winner
+    }
 
 
 type alias Model =
@@ -41,9 +43,10 @@ spreadStone position stage =
             getAtStone position stage
 
         newfield =
-            Array.set position 0 stage.field
+            stage.field
                 |> Array.toList
-                |> List.map2 (+) (makeSpread position num)
+                |> List.map2 (+) (makeSpread position stage)
+                |> List.map2 (+) (makeCapture position stage)
                 |> Array.fromList
     in
     if num == 0 then
@@ -51,6 +54,68 @@ spreadStone position stage =
 
     else
         { stage | turn = nextTurn num position stage.turn, field = newfield, winner = checkWinner newfield }
+
+
+makeSpread : Int -> Stage -> List Int
+makeSpread position stage =
+    let
+        num =
+            getAtStone position stage
+
+        spreadList =
+            List.repeat 14 0
+    in
+    if modBy 7 position == 0 then
+        spreadList
+        -- If makeSpread occur at kalaha hole, make zero array. (Just in case)
+
+    else
+        List.indexedMap
+            (\i n ->
+                if modBy 14 (i - position) <= modBy 14 num && modBy 14 (i - position) /= 0 then
+                    n + 1 + num // 14
+
+                else
+                    n + num // 14
+            )
+            (spreadList |> Array.fromList |> Array.set position (-1 * num) |> Array.toList)
+
+
+makeCapture : Int -> Stage -> List Int
+makeCapture position stage =
+    let
+        num =
+            getAtStone position stage
+
+        lastPosition =
+            modBy 14 (getAtStone position stage + position)
+
+        capturedList =
+            List.repeat 14 0
+
+        aimedGoal =
+            if stage.turn == Myself then
+                7
+
+            else
+                0
+    in
+    let
+        oppositeStone =
+            getAtStone (14 - lastPosition) stage
+    in
+    if num == 0 || num > 14 then
+        capturedList
+
+    else if num == 14 || (lastPosition >= modBy 14 (aimedGoal + 8) && lastPosition <= modBy 14 (aimedGoal + 13) && getAtStone lastPosition stage == 0) then
+        capturedList
+            |> Array.fromList
+            |> Array.set aimedGoal (oppositeStone + 1)
+            |> Array.set (14 - lastPosition) (-1 * oppositeStone - 1)
+            |> Array.toList
+
+    else
+        capturedList
 
 
 checkWinner : Array Int -> Winner
@@ -92,31 +157,6 @@ checkWinner field =
         Playing
 
 
-makeSpread : Int -> Int -> List Int
-makeSpread position num =
-    if modBy 7 position == 0 then
-        List.repeat 14 0
-
-    else
-        List.indexedMap
-            (\i n ->
-                if (position + modBy 14 num >= 14) && (i <= modBy 14 (position + modBy 14 num)) then
-                    n + 1
-
-                else
-                    n
-            )
-            (List.repeat 14 (num // 14))
-            |> List.indexedMap
-                (\i n ->
-                    if (position < i) && (i <= position + modBy 14 num) then
-                        n + 1
-
-                    else
-                        n
-                )
-
-
 nextTurn : Int -> Int -> Player -> Player
 nextTurn stoneNum position thisTurn =
     if thisTurn == Myself then
@@ -141,6 +181,34 @@ getAtStone position stage =
 
         Just i ->
             i
+
+
+getSummary : Stage -> { my : Int, opposite : Int }
+getSummary stage =
+    let
+        myEndStone =
+            case Array.get 7 stage.field of
+                Nothing ->
+                    0
+
+                Just i ->
+                    i
+
+        oppositeEndStone =
+            case Array.get 0 stage.field of
+                Nothing ->
+                    0
+
+                Just i ->
+                    i
+
+        myOnRoadStone =
+            List.sum <| Array.toList <| Array.slice 1 7 stage.field
+
+        oppositeOnRoadStone =
+            List.sum <| Array.toList <| Array.slice 8 14 stage.field
+    in
+    { my = myEndStone + myOnRoadStone, opposite = oppositeEndStone + oppositeOnRoadStone }
 
 
 type Msg
@@ -177,42 +245,28 @@ viewStage model =
             , viewSpreadField model
             , viewPointCell model Myself
             ]
-        , el [ centerX, Font.size 32 ]
-            (text <|
-                case model.winner of
-                    Playing ->
-                        (if model.turn == Myself then
-                            "わたしの"
-
-                         else
-                            "相手の"
-                        )
-                            ++ "ターンです"
-
-                    Draw ->
-                        "引き分けでした〜"
-
-                    End player ->
-                        (if player == Myself then
-                            "わたしの"
-
-                         else
-                            "相手の"
-                        )
-                            ++ "勝ちです"
-            )
+        , viewProgressDesc model
         ]
 
 
 viewSpreadField : Model -> Element Msg
 viewSpreadField model =
-    row [ explain Debug.todo, width (fillPortion 6), height fill ]
-        (List.map (viewColumn model) (List.range 1 6))
+    column [ explain Debug.todo, width (fillPortion 6), height fill ]
+        (List.map (viewColumn model) [ Opposite, Myself ])
 
 
-viewColumn : Model -> Int -> Element Msg
-viewColumn model position =
-    column [ explain Debug.todo, width fill, height fill ] [ viewCell model (14 - position), viewCell model position ]
+viewColumn : Model -> Player -> Element Msg
+viewColumn model player =
+    let
+        targetList =
+            case player of
+                Myself ->
+                    List.range 1 6
+
+                Opposite ->
+                    List.range 8 13 |> List.reverse
+    in
+    row [ explain Debug.todo, width fill, height fill ] (List.map (viewCell model) targetList)
 
 
 viewCell : Model -> Int -> Element Msg
@@ -220,20 +274,35 @@ viewCell model position =
     let
         onClick =
             case model.winner of
-                End player ->
+                End _ ->
                     Events.onClick NoOp
 
                 Draw ->
                     Events.onClick NoOp
 
                 Playing ->
-                    if ((model.turn == Myself) && (position <= 6)) || ((model.turn == Opposite) && (position >= 8)) then
+                    if ((model.turn == Myself) && (position <= 6) && getAtStone position model /= 0) || ((model.turn == Opposite) && (position >= 8) && getAtStone position model /= 0) then
                         Events.onClick (Spread position)
 
                     else
                         Events.onClick NoOp
+
+        spreadable =
+            case model.winner of
+                End _ ->
+                    mouseOver []
+
+                Draw ->
+                    mouseOver []
+
+                Playing ->
+                    if ((model.turn == Myself) && (position <= 6) && getAtStone position model /= 0) || ((model.turn == Opposite) && (position >= 8) && getAtStone position model /= 0) then
+                        mouseOver [ Bg.color (rgba 1 0.2 0.3 0.5) ]
+
+                    else
+                        mouseOver []
     in
-    column [ height (fill |> minimum 50), width (fill |> minimum 50), onClick ] [ el [ centerX, centerY ] (text <| String.fromInt <| getAtStone position model) ]
+    column [ height (fill |> minimum 50), width (fill |> minimum 50), onClick, spreadable ] [ el [ centerX, centerY ] (text <| String.fromInt <| getAtStone position model) ]
 
 
 viewPointCell : Model -> Player -> Element Msg
@@ -244,6 +313,43 @@ viewPointCell model player =
 
         Opposite ->
             column [ height (fill |> minimum 100), width (fillPortion 1 |> minimum 50) ] [ el [ centerX, centerY ] (text <| String.fromInt <| getAtStone 0 model) ]
+
+
+viewProgressDesc : Model -> Element Msg
+viewProgressDesc model =
+    let
+        summary =
+            getSummary model
+    in
+    el [ centerX, Font.size 32 ]
+        (text <|
+            case model.winner of
+                Playing ->
+                    (if model.turn == Myself then
+                        "わたしの"
+
+                     else
+                        "相手の"
+                    )
+                        ++ "ターンです"
+
+                Draw ->
+                    "引き分けでした〜"
+
+                End player ->
+                    (if player == Myself then
+                        "わたしの"
+
+                     else
+                        "相手の"
+                    )
+                        ++ "勝ちです"
+                        ++ " ("
+                        ++ String.fromInt summary.my
+                        ++ " vs "
+                        ++ String.fromInt summary.opposite
+                        ++ " )"
+        )
 
 
 main : Program () Model Msg
