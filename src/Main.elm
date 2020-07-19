@@ -183,6 +183,34 @@ getAtStone position stage =
             i
 
 
+getSummary : Stage -> { my : Int, opposite : Int }
+getSummary stage =
+    let
+        myEndStone =
+            case Array.get 7 stage.field of
+                Nothing ->
+                    0
+
+                Just i ->
+                    i
+
+        oppositeEndStone =
+            case Array.get 0 stage.field of
+                Nothing ->
+                    0
+
+                Just i ->
+                    i
+
+        myOnRoadStone =
+            List.sum <| Array.toList <| Array.slice 1 7 stage.field
+
+        oppositeOnRoadStone =
+            List.sum <| Array.toList <| Array.slice 8 14 stage.field
+    in
+    { my = myEndStone + myOnRoadStone, opposite = oppositeEndStone + oppositeOnRoadStone }
+
+
 type Msg
     = Spread Int
     | Initialize
@@ -289,6 +317,10 @@ viewPointCell model player =
 
 viewProgressDesc : Model -> Element Msg
 viewProgressDesc model =
+    let
+        summary =
+            getSummary model
+    in
     el [ centerX, Font.size 32 ]
         (text <|
             case model.winner of
@@ -312,6 +344,11 @@ viewProgressDesc model =
                         "相手の"
                     )
                         ++ "勝ちです"
+                        ++ " ("
+                        ++ String.fromInt summary.my
+                        ++ " vs "
+                        ++ String.fromInt summary.opposite
+                        ++ " )"
         )
 
 
