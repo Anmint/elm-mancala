@@ -92,6 +92,13 @@ makeCapture position stage =
 
         capturedList =
             List.repeat 14 0
+
+        aimedGoal =
+            if stage.turn == Myself then
+                7
+
+            else
+                0
     in
     let
         oppositeStone =
@@ -100,18 +107,11 @@ makeCapture position stage =
     if num == 0 || num > 14 then
         capturedList
 
-    else if stage.turn == Myself && lastPosition >= 1 && lastPosition <= 6 && getAtStone lastPosition stage == 0 then
+    else if num == 14 || (lastPosition >= modBy 14 (aimedGoal + 8) && lastPosition <= modBy 14 (aimedGoal + 13) && getAtStone lastPosition stage == 0) then
         capturedList
             |> Array.fromList
-            |> Array.set 7 oppositeStone
-            |> Array.set (14 - lastPosition) (-1 * oppositeStone)
-            |> Array.toList
-
-    else if stage.turn == Opposite && lastPosition >= 8 && lastPosition <= 13 && getAtStone lastPosition stage == 0 then
-        capturedList
-            |> Array.fromList
-            |> Array.set 0 oppositeStone
-            |> Array.set (14 - lastPosition) (-1 * oppositeStone)
+            |> Array.set aimedGoal (oppositeStone + 1)
+            |> Array.set (14 - lastPosition) (-1 * oppositeStone - 1)
             |> Array.toList
 
     else
