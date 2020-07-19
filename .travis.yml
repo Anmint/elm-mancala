@@ -2,7 +2,7 @@ language: node_js
 node_js:
   - 12
 before_script:
-  - npm install -g elm@0.19.1
-  - npm install -g elm-test@0.19.1-revision2
+  - npm install -g elm@
+  - npm install -g elm-test
   - elm-package install -y
 script: elm-test

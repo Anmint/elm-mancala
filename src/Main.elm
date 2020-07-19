@@ -1,4 +1,4 @@
-module Main exposing (main)
+module Main exposing (..)
 
 import Array exposing (Array)
 import Browser
