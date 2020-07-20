@@ -22,7 +22,8 @@ type Winner
 
 type alias Stage =
     { turn : Player
-    , field : Array Int
+    , field : List Int
+    , lastSown : Maybe Int -- Point out last position of sowing
     , winner : Winner
     }
 
@@ -33,63 +34,49 @@ type alias Model =
 
 initialModel : ( Model, Cmd Msg )
 initialModel =
-    ( { turn = Myself, field = Array.fromList [ 0, 4, 4, 4, 4, 4, 4, 0, 4, 4, 4, 4, 4, 4 ], winner = Playing }, Cmd.none )
+    ( { turn = Myself, field = [ 0, 4, 4, 4, 4, 4, 4, 0, 4, 4, 4, 4, 4, 4 ], lastSown = Nothing, winner = Playing }, Cmd.none )
 
 
-spreadStone : Int -> Stage -> Stage
-spreadStone position stage =
+
+--Sow stones in a hole to other holes conterclockwise
+
+
+sowStone : Int -> Stage -> Stage
+sowStone position stage =
     let
         num =
             getAtStone position stage
 
-        newfield =
-            stage.field
-                |> Array.toList
-                |> List.map2 (+) (makeSpread position stage)
-                |> List.map2 (+) (makeCapture position stage)
-                |> Array.fromList
-    in
-    if num == 0 then
-        stage
-
-    else
-        { stage | turn = nextTurn num position stage.turn, field = newfield, winner = checkWinner newfield }
-
-
-makeSpread : Int -> Stage -> List Int
-makeSpread position stage =
-    let
-        num =
-            getAtStone position stage
-
-        spreadList =
+        sownList =
             List.repeat 14 0
     in
     if modBy 7 position == 0 then
-        spreadList
-        -- If makeSpread occur at kalaha hole, make zero array. (Just in case)
+        stage
+        -- If makeSpread occur at kalah hole, sowing does not occur.
 
     else
-        List.indexedMap
-            (\i n ->
-                if modBy 14 (i - position) <= modBy 14 num && modBy 14 (i - position) /= 0 then
-                    n + 1 + num // 14
+        let
+            newField =
+                List.indexedMap
+                    (\i n ->
+                        if modBy 14 (i - position) <= modBy 14 num && modBy 14 (i - position) /= 0 then
+                            n + 1 + num // 14
 
-                else
-                    n + num // 14
-            )
-            (spreadList |> Array.fromList |> Array.set position (-1 * num) |> Array.toList)
+                        else
+                            n + num // 14
+                    )
+                    (sownList |> Array.fromList |> Array.set position (-1 * num) |> Array.toList)
+                    |> List.map2 (+) stage.field
+
+            lastPosition =
+                modBy 14 (num + position)
+        in
+        { stage | field = newField, lastSown = Just lastPosition }
 
 
-makeCapture : Int -> Stage -> List Int
-makeCapture position stage =
+captureStone : Stage -> Stage
+captureStone stage =
     let
-        num =
-            getAtStone position stage
-
-        lastPosition =
-            modBy 14 (getAtStone position stage + position)
-
         capturedList =
             List.repeat 14 0
 
@@ -99,27 +86,64 @@ makeCapture position stage =
 
             else
                 0
-    in
-    let
-        oppositeStone =
-            getAtStone (14 - lastPosition) stage
-    in
-    if num == 0 || num > 14 then
-        capturedList
 
-    else if num == 14 || (lastPosition >= modBy 14 (aimedGoal + 8) && lastPosition <= modBy 14 (aimedGoal + 13) && getAtStone lastPosition stage == 0) then
-        capturedList
-            |> Array.fromList
-            |> Array.set aimedGoal (oppositeStone + 1)
-            |> Array.set (14 - lastPosition) (-1 * oppositeStone - 1)
-            |> Array.toList
+        oppositeStone =
+            case stage.lastSown of
+                Nothing ->
+                    0
+
+                Just i ->
+                    getAtStone (14 - i) stage
+
+        lastSownInt =
+            case stage.lastSown of
+                Nothing ->
+                    -1
+
+                Just i ->
+                    i
+    in
+    if oppositeStone == 0 then
+        stage
+
+    else if lastSownInt >= modBy 14 (aimedGoal + 8) && lastSownInt <= modBy 14 (aimedGoal + 13) && getAtStone lastSownInt stage == 1 then
+        let
+            newField =
+                capturedList
+                    |> Array.fromList
+                    |> Array.set aimedGoal oppositeStone
+                    |> Array.set (14 - lastSownInt) (-1 * oppositeStone)
+                    |> Array.toList
+                    |> List.map2 (+) stage.field
+        in
+        { stage | field = newField }
 
     else
-        capturedList
+        stage
 
 
-checkWinner : Array Int -> Winner
-checkWinner field =
+setNextTurn : Stage -> Stage
+setNextTurn stage =
+    if stage.turn == Myself then
+        if stage.lastSown == Just 7 then
+            { stage | turn = Myself, lastSown = Nothing }
+
+        else
+            { stage | turn = Opposite, lastSown = Nothing }
+
+    else if stage.lastSown == Just 0 then
+        { stage | turn = Opposite, lastSown = Nothing }
+
+    else
+        { stage | turn = Myself, lastSown = Nothing }
+
+
+checkWinner : Stage -> Stage
+checkWinner stage =
+    let
+        field =
+            Array.fromList stage.field
+    in
     let
         myEndStone =
             case Array.get 7 field of
@@ -145,37 +169,42 @@ checkWinner field =
     in
     if (myOnRoadStone == 0) || (oppositeOnRoadStone == 0) then
         if myEndStone + myOnRoadStone == oppositeEndStone + oppositeOnRoadStone then
-            Draw
+            { stage | winner = Draw }
 
         else if myEndStone + myOnRoadStone > oppositeEndStone + oppositeOnRoadStone then
-            End Myself
+            { stage | winner = End Myself }
 
         else
-            End Opposite
+            { stage | winner = End Opposite }
 
     else
-        Playing
+        { stage | winner = Playing }
 
 
-nextTurn : Int -> Int -> Player -> Player
-nextTurn stoneNum position thisTurn =
-    if thisTurn == Myself then
-        if (7 - position) == modBy 14 stoneNum then
-            Myself
-
-        else
-            Opposite
-
-    else if (14 - position) == modBy 14 stoneNum then
-        Opposite
+spreadStone : Int -> Stage -> Stage
+spreadStone position stage =
+    let
+        num =
+            getAtStone position stage
+    in
+    if num == 0 then
+        stage
 
     else
-        Myself
+        stage
+            |> sowStone position
+            |> captureStone
+            |> setNextTurn
+            |> checkWinner
 
 
 getAtStone : Int -> Stage -> Int
 getAtStone position stage =
-    case Array.get position stage.field of
+    let
+        arrayField =
+            Array.fromList stage.field
+    in
+    case Array.get position arrayField of
         Nothing ->
             0
 
@@ -187,26 +216,16 @@ getSummary : Stage -> { my : Int, opposite : Int }
 getSummary stage =
     let
         myEndStone =
-            case Array.get 7 stage.field of
-                Nothing ->
-                    0
-
-                Just i ->
-                    i
+            getAtStone 7 stage
 
         oppositeEndStone =
-            case Array.get 0 stage.field of
-                Nothing ->
-                    0
-
-                Just i ->
-                    i
+            getAtStone 0 stage
 
         myOnRoadStone =
-            List.sum <| Array.toList <| Array.slice 1 7 stage.field
+            List.sum <| Array.toList <| Array.slice 1 7 (Array.fromList stage.field)
 
         oppositeOnRoadStone =
-            List.sum <| Array.toList <| Array.slice 8 14 stage.field
+            List.sum <| Array.toList <| Array.slice 8 14 (Array.fromList stage.field)
     in
     { my = myEndStone + myOnRoadStone, opposite = oppositeEndStone + oppositeOnRoadStone }
 

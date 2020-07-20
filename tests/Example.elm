@@ -16,41 +16,41 @@ suite =
                 \_ ->
                     let
                         noStone =
-                            List.repeat 14 0
+                            [ 0, 0, 4, 0, 0, 0, 0, 14, 0, 0, 0, 5, 0, 0 ]
 
                         initialmodel =
-                            { turn = Myself, field = Array.fromList [ 0, 0, 4, 0, 0, 0, 0, 14, 0, 0, 0, 5, 0, 0 ], winner = Playing }
+                            { turn = Myself, field = [ 0, 0, 4, 0, 0, 0, 0, 14, 0, 0, 0, 5, 0, 0 ], lastSown = Nothing, winner = Playing }
                     in
-                    Expect.equal noStone (makeSpread 4 initialmodel)
+                    Expect.equal noStone (sowStone 4 initialmodel).field
             , test "normal sowing" <|
                 \_ ->
                     let
                         normalSowing =
-                            [ 0, 0, -4, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0 ]
+                            [ 0, 0, 0, 1, 1, 1, 1, 0, 14, 0, 0, 5, 0, 0 ]
 
                         initialmodel =
-                            { turn = Myself, field = Array.fromList [ 0, 0, 4, 0, 0, 0, 0, 0, 14, 0, 0, 5, 0, 0 ], winner = Playing }
+                            { turn = Myself, field = [ 0, 0, 4, 0, 0, 0, 0, 0, 14, 0, 0, 5, 0, 0 ], lastSown = Nothing, winner = Playing }
                     in
-                    Expect.equal normalSowing (makeSpread 2 initialmodel)
+                    Expect.equal normalSowing (sowStone 2 initialmodel).field
             , test "circled sowing" <|
                 \_ ->
                     let
                         circledSowing =
-                            [ 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, -5, 1, 1 ]
+                            [ 1, 1, 5, 0, 0, 0, 0, 0, 14, 0, 0, 0, 1, 1 ]
 
                         initialmodel =
-                            { turn = Myself, field = Array.fromList [ 0, 0, 4, 0, 0, 0, 0, 0, 14, 0, 0, 5, 0, 0 ], winner = Playing }
+                            { turn = Myself, field = [ 0, 0, 4, 0, 0, 0, 0, 0, 14, 0, 0, 5, 0, 0 ], lastSown = Nothing, winner = Playing }
                     in
-                    Expect.equal circledSowing (makeSpread 11 initialmodel)
+                    Expect.equal circledSowing (sowStone 11 initialmodel).field
             , test "overlapped sowing" <|
                 \_ ->
                     let
                         overlappedSowing =
-                            [ 1, 1, 1, 1, 1, 1, 1, 1, -13, 1, 1, 1, 1, 1 ]
+                            [ 1, 1, 5, 1, 1, 1, 1, 1, 1, 1, 1, 6, 1, 1 ]
 
                         initialmodel =
-                            { turn = Myself, field = Array.fromList [ 0, 0, 4, 0, 0, 0, 0, 0, 14, 0, 0, 5, 0, 0 ], winner = Playing }
+                            { turn = Myself, field = [ 0, 0, 4, 0, 0, 0, 0, 0, 14, 0, 0, 5, 0, 0 ], lastSown = Nothing, winner = Playing }
                     in
-                    Expect.equal overlappedSowing (makeSpread 8 initialmodel)
+                    Expect.equal overlappedSowing (sowStone 8 initialmodel).field
             ]
         ]
