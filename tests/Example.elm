@@ -10,7 +10,7 @@ import Test exposing (..)
 
 suite : Test
 suite =
-    describe "Stage -> List Int"
+    describe "Update Stage"
         [ describe "makeSpread"
             [ test "no stone, no sow" <|
                 \_ ->
