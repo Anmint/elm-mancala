@@ -34,7 +34,7 @@ type alias Model =
 
 pitNumber : Int
 pitNumber =
-    16
+    14
 
 
 stoneNumber : Int
