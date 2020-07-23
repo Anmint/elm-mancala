@@ -4,6 +4,7 @@ import Array exposing (Array)
 import Browser
 import Element exposing (..)
 import Element.Background as Bg
+import Element.Border as Border
 import Element.Events as Events
 import Element.Font as Font
 import Html exposing (Html)
@@ -22,7 +23,8 @@ type Winner
 
 type alias Stage =
     { turn : Player
-    , field : Array Int
+    , field : List Int
+    , lastSown : Maybe Int -- Point out last position of sowing
     , winner : Winner
     }
 
@@ -31,98 +33,167 @@ type alias Model =
     Stage
 
 
+pitNumber : Int
+pitNumber =
+    14
+
+
+stoneNumber : Int
+stoneNumber =
+    4
+
+
 initialModel : ( Model, Cmd Msg )
 initialModel =
-    ( { turn = Myself, field = Array.fromList [ 0, 4, 4, 4, 4, 4, 4, 0, 4, 4, 4, 4, 4, 4 ], winner = Playing }, Cmd.none )
+    ( initializeStage pitNumber stoneNumber, Cmd.none )
 
 
-spreadStone : Int -> Stage -> Stage
-spreadStone position stage =
+initializeStage : Int -> Int -> Stage
+initializeStage pit stone =
+    let
+        initialField =
+            0 :: List.repeat (pit // 2 - 1) stone |> List.append (0 :: List.repeat (pit // 2 - 1) stone)
+    in
+    { turn = Myself, field = initialField, lastSown = Nothing, winner = Playing }
+
+
+
+--Sow stones in a pit to other pits conterclockwise
+
+
+sowStone : Int -> Stage -> Stage
+sowStone position stage =
     let
         num =
             getAtStone position stage
 
-        newfield =
-            stage.field
-                |> Array.toList
-                |> List.map2 (+) (makeSpread position stage)
-                |> List.map2 (+) (makeCapture position stage)
-                |> Array.fromList
+        sownList =
+            List.repeat pitNumber 0
     in
-    if num == 0 then
+    if modBy (pitNumber // 2) position == 0 then
         stage
+        -- If makeSpread occur at kalah pit, sowing does not occur.
 
     else
-        { stage | turn = nextTurn num position stage.turn, field = newfield, winner = checkWinner newfield }
+        let
+            newField =
+                List.indexedMap
+                    (\i n ->
+                        if modBy pitNumber (i - position) <= modBy pitNumber num && modBy pitNumber (i - position) /= 0 then
+                            n + 1 + num // pitNumber
+
+                        else
+                            n + num // pitNumber
+                    )
+                    (sownList |> Array.fromList |> Array.set position (-1 * num) |> Array.toList)
+                    |> List.map2 (+) stage.field
+
+            lastPosition =
+                modBy pitNumber (num + position)
+        in
+        { stage | field = newField, lastSown = Just lastPosition }
 
 
-makeSpread : Int -> Stage -> List Int
-makeSpread position stage =
+
+-- If last stone is sown to my vacant pit and opposite pit have one or more stones, these stones are captured.
+
+
+captureStone : Stage -> Stage
+captureStone stage =
     let
-        num =
-            getAtStone position stage
-
-        spreadList =
-            List.repeat 14 0
-    in
-    if modBy 7 position == 0 then
-        spreadList
-        -- If makeSpread occur at kalaha hole, make zero array. (Just in case)
-
-    else
-        List.indexedMap
-            (\i n ->
-                if modBy 14 (i - position) <= modBy 14 num && modBy 14 (i - position) /= 0 then
-                    n + 1 + num // 14
-
-                else
-                    n + num // 14
-            )
-            (spreadList |> Array.fromList |> Array.set position (-1 * num) |> Array.toList)
-
-
-makeCapture : Int -> Stage -> List Int
-makeCapture position stage =
-    let
-        num =
-            getAtStone position stage
-
-        lastPosition =
-            modBy 14 (getAtStone position stage + position)
-
         capturedList =
-            List.repeat 14 0
+            List.repeat pitNumber 0
 
         aimedGoal =
             if stage.turn == Myself then
-                7
+                pitNumber // 2
 
             else
                 0
-    in
-    let
-        oppositeStone =
-            getAtStone (14 - lastPosition) stage
-    in
-    if num == 0 || num > 14 then
-        capturedList
 
-    else if num == 14 || (lastPosition >= modBy 14 (aimedGoal + 8) && lastPosition <= modBy 14 (aimedGoal + 13) && getAtStone lastPosition stage == 0) then
-        capturedList
-            |> Array.fromList
-            |> Array.set aimedGoal (oppositeStone + 1)
-            |> Array.set (14 - lastPosition) (-1 * oppositeStone - 1)
-            |> Array.toList
+        oppositeStone =
+            case stage.lastSown of
+                Nothing ->
+                    0
+
+                Just i ->
+                    getAtStone (pitNumber - i) stage
+
+        lastSownInt =
+            case stage.lastSown of
+                Nothing ->
+                    -1
+
+                Just i ->
+                    i
+    in
+    if oppositeStone == 0 then
+        stage
+        {--
+    In (x,6) Kalah, index of pit are assigned like:
+        0   13  12  11  10  9   8
+            1   2   3   4   5   6   7
+    Sum of index in each column is always 14. Generally, the sum in (x, y) kalah is always 2y + 2 (= sum of pit number).
+    I have to get range of index if I get an index of goal pit (Myself = 7, Opposite = 0).
+    It is notable that 8 (min of index in Opposite) + 7 (goal in Myself) == 1 (min of index in Myself) mod 14 and
+    13 (max of index in Opposite) + 7 (goal in Myself) == 6 (max of index in Myself) mod 14
+    More generally, consider (x, y) kalah, 
+        (y + 2) (min of index in Opposite) + (y + 1) (goal in Myself) == 1 (min of index in Myself) mod (2y + 2)
+        (2y + 1) (max of index in Opposite) + (y + 1) (goal in Myself) == y (max of index in Myself) mod (2y + 2)
+    Inversely,
+        (y + 2) (min of index in Opposite) + 0 (goal in Opposite) == (y + 2) (min of index in Opposite) mod (2y + 2)
+        (2y + 1) (max of index in Opposite) + 0 (goal in Opposite) == (2y + 1) (max of index in Opposite) mod (2y + 2)
+    Now pitNumber = 2y + 2, aimedGoal = y + 1.
+--}
+
+    else if lastSownInt >= modBy pitNumber (aimedGoal + pitNumber // 2 + 1) && lastSownInt <= modBy pitNumber (aimedGoal + pitNumber - 1) && getAtStone lastSownInt stage == 1 then
+        let
+            newField =
+                capturedList
+                    |> Array.fromList
+                    |> Array.set aimedGoal oppositeStone
+                    |> Array.set (pitNumber - lastSownInt) (-1 * oppositeStone)
+                    |> Array.toList
+                    |> List.map2 (+) stage.field
+        in
+        { stage | field = newField }
 
     else
-        capturedList
+        stage
 
 
-checkWinner : Array Int -> Winner
-checkWinner field =
+
+-- If the last stone is sown to my goal, player's turn continue.
+
+
+setNextTurn : Stage -> Stage
+setNextTurn stage =
+    if stage.turn == Myself then
+        if stage.lastSown == Just (pitNumber // 2) then
+            { stage | turn = Myself, lastSown = Nothing }
+
+        else
+            { stage | turn = Opposite, lastSown = Nothing }
+
+    else if stage.lastSown == Just 0 then
+        { stage | turn = Opposite, lastSown = Nothing }
+
+    else
+        { stage | turn = Myself, lastSown = Nothing }
+
+
+checkWinner : Stage -> Stage
+checkWinner stage =
+    let
+        field =
+            Array.fromList stage.field
+
+        goalMyself =
+            pitNumber // 2
+    in
     let
         myEndStone =
-            case Array.get 7 field of
+            case Array.get goalMyself field of
                 Nothing ->
                     0
 
@@ -138,44 +209,53 @@ checkWinner field =
                     i
 
         myOnRoadStone =
-            List.sum <| Array.toList <| Array.slice 1 7 field
+            List.sum <| Array.toList <| Array.slice 1 goalMyself field
 
         oppositeOnRoadStone =
-            List.sum <| Array.toList <| Array.slice 8 14 field
+            List.sum <| Array.toList <| Array.slice (goalMyself + 1) pitNumber field
     in
     if (myOnRoadStone == 0) || (oppositeOnRoadStone == 0) then
         if myEndStone + myOnRoadStone == oppositeEndStone + oppositeOnRoadStone then
-            Draw
+            { stage | winner = Draw }
 
         else if myEndStone + myOnRoadStone > oppositeEndStone + oppositeOnRoadStone then
-            End Myself
+            { stage | winner = End Myself }
 
         else
-            End Opposite
+            { stage | winner = End Opposite }
 
     else
-        Playing
+        { stage | winner = Playing }
 
 
-nextTurn : Int -> Int -> Player -> Player
-nextTurn stoneNum position thisTurn =
-    if thisTurn == Myself then
-        if (7 - position) == modBy 14 stoneNum then
-            Myself
-
-        else
-            Opposite
-
-    else if (14 - position) == modBy 14 stoneNum then
-        Opposite
+spreadStone : Int -> Stage -> Stage
+spreadStone position stage =
+    let
+        num =
+            getAtStone position stage
+    in
+    if num == 0 then
+        stage
 
     else
-        Myself
+        stage
+            |> sowStone position
+            |> captureStone
+            |> setNextTurn
+            |> checkWinner
+
+
+
+-- Get number of stone in specific pit
 
 
 getAtStone : Int -> Stage -> Int
 getAtStone position stage =
-    case Array.get position stage.field of
+    let
+        arrayField =
+            Array.fromList stage.field
+    in
+    case Array.get position arrayField of
         Nothing ->
             0
 
@@ -186,27 +266,21 @@ getAtStone position stage =
 getSummary : Stage -> { my : Int, opposite : Int }
 getSummary stage =
     let
+        goalMyself =
+            pitNumber // 2
+    in
+    let
         myEndStone =
-            case Array.get 7 stage.field of
-                Nothing ->
-                    0
-
-                Just i ->
-                    i
+            getAtStone goalMyself stage
 
         oppositeEndStone =
-            case Array.get 0 stage.field of
-                Nothing ->
-                    0
-
-                Just i ->
-                    i
+            getAtStone 0 stage
 
         myOnRoadStone =
-            List.sum <| Array.toList <| Array.slice 1 7 stage.field
+            List.sum <| Array.toList <| Array.slice 1 goalMyself (Array.fromList stage.field)
 
         oppositeOnRoadStone =
-            List.sum <| Array.toList <| Array.slice 8 14 stage.field
+            List.sum <| Array.toList <| Array.slice (goalMyself + 1) pitNumber (Array.fromList stage.field)
     in
     { my = myEndStone + myOnRoadStone, opposite = oppositeEndStone + oppositeOnRoadStone }
 
@@ -237,10 +311,10 @@ view model =
 
 viewStage : Model -> Element Msg
 viewStage model =
-    column [ explain Debug.todo, width fill ]
+    column [ spacing 10, width fill ]
         [ el [ centerX, Font.size 32 ] (text "Mancala the World")
         , row
-            [ explain Debug.todo, width fill ]
+            [ Bg.color (rgb255 102 51 51), Border.rounded 20, padding 20, spacing 5, width fill ]
             [ viewPointCell model Opposite
             , viewSpreadField model
             , viewPointCell model Myself
@@ -251,7 +325,7 @@ viewStage model =
 
 viewSpreadField : Model -> Element Msg
 viewSpreadField model =
-    column [ explain Debug.todo, width (fillPortion 6), height fill ]
+    column [ spacing 10, width (fillPortion 6), height fill ]
         (List.map (viewColumn model) [ Opposite, Myself ])
 
 
@@ -261,12 +335,12 @@ viewColumn model player =
         targetList =
             case player of
                 Myself ->
-                    List.range 1 6
+                    List.range 1 (pitNumber // 2 - 1)
 
                 Opposite ->
-                    List.range 8 13 |> List.reverse
+                    List.range (pitNumber // 2 + 1) (pitNumber - 1) |> List.reverse
     in
-    row [ explain Debug.todo, width fill, height fill ] (List.map (viewCell model) targetList)
+    row [ spacing 10, width fill, height fill ] (List.map (viewCell model) targetList)
 
 
 viewCell : Model -> Int -> Element Msg
@@ -281,7 +355,7 @@ viewCell model position =
                     Events.onClick NoOp
 
                 Playing ->
-                    if ((model.turn == Myself) && (position <= 6) && getAtStone position model /= 0) || ((model.turn == Opposite) && (position >= 8) && getAtStone position model /= 0) then
+                    if ((model.turn == Myself) && (position <= (pitNumber // 2 - 1)) && getAtStone position model /= 0) || ((model.turn == Opposite) && (position >= (pitNumber // 2 + 1)) && getAtStone position model /= 0) then
                         Events.onClick (Spread position)
 
                     else
@@ -296,23 +370,32 @@ viewCell model position =
                     mouseOver []
 
                 Playing ->
-                    if ((model.turn == Myself) && (position <= 6) && getAtStone position model /= 0) || ((model.turn == Opposite) && (position >= 8) && getAtStone position model /= 0) then
+                    if ((model.turn == Myself) && (position <= (pitNumber // 2 - 1)) && getAtStone position model /= 0) || ((model.turn == Opposite) && (position >= (pitNumber // 2 + 1)) && getAtStone position model /= 0) then
                         mouseOver [ Bg.color (rgba 1 0.2 0.3 0.5) ]
 
                     else
                         mouseOver []
     in
-    column [ height (fill |> minimum 50), width (fill |> minimum 50), onClick, spreadable ] [ el [ centerX, centerY ] (text <| String.fromInt <| getAtStone position model) ]
+    column [ Bg.color (rgb255 153 51 51), Border.solid, Border.color (rgb 0 0 0), Border.width 1, Border.rounded 10, height (fill |> minimum 100), width (fill |> minimum 100), onClick, spreadable ] [ el boardTextSetting (text <| String.fromInt <| getAtStone position model) ]
 
 
 viewPointCell : Model -> Player -> Element Msg
 viewPointCell model player =
-    case player of
-        Myself ->
-            column [ height (fill |> minimum 100), width (fillPortion 1 |> minimum 50) ] [ el [ centerX, centerY ] (text <| String.fromInt <| getAtStone 7 model) ]
+    let
+        pointText =
+            case player of
+                Myself ->
+                    text <| String.fromInt <| getAtStone (pitNumber // 2) model
 
-        Opposite ->
-            column [ height (fill |> minimum 100), width (fillPortion 1 |> minimum 50) ] [ el [ centerX, centerY ] (text <| String.fromInt <| getAtStone 0 model) ]
+                Opposite ->
+                    text <| String.fromInt <| getAtStone 0 model
+    in
+    column [ Bg.color (rgb255 153 51 51), Border.solid, Border.color (rgb 0 0 0), Border.width 1, Border.rounded 10, height (fill |> minimum 100), width (fillPortion 1 |> minimum 50) ] [ el boardTextSetting pointText ]
+
+
+boardTextSetting : List (Attribute msg)
+boardTextSetting =
+    [ centerX, centerY, Font.color (rgb 1 1 1) ]
 
 
 viewProgressDesc : Model -> Element Msg
