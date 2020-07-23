@@ -4,6 +4,7 @@ import Array exposing (Array)
 import Browser
 import Element exposing (..)
 import Element.Background as Bg
+import Element.Border as Border
 import Element.Events as Events
 import Element.Font as Font
 import Html exposing (Html)
@@ -310,10 +311,10 @@ view model =
 
 viewStage : Model -> Element Msg
 viewStage model =
-    column [ width fill ]
+    column [ spacing 10, width fill ]
         [ el [ centerX, Font.size 32 ] (text "Mancala the World")
         , row
-            [ width fill ]
+            [ Bg.color (rgb255 102 51 51), Border.rounded 20, padding 20, spacing 5, width fill ]
             [ viewPointCell model Opposite
             , viewSpreadField model
             , viewPointCell model Myself
@@ -324,7 +325,7 @@ viewStage model =
 
 viewSpreadField : Model -> Element Msg
 viewSpreadField model =
-    column [ width (fillPortion 6), height fill ]
+    column [ spacing 10, width (fillPortion 6), height fill ]
         (List.map (viewColumn model) [ Opposite, Myself ])
 
 
@@ -339,7 +340,7 @@ viewColumn model player =
                 Opposite ->
                     List.range (pitNumber // 2 + 1) (pitNumber - 1) |> List.reverse
     in
-    row [ width fill, height fill ] (List.map (viewCell model) targetList)
+    row [ spacing 10, width fill, height fill ] (List.map (viewCell model) targetList)
 
 
 viewCell : Model -> Int -> Element Msg
@@ -375,17 +376,26 @@ viewCell model position =
                     else
                         mouseOver []
     in
-    column [ height (fill |> minimum 50), width (fill |> minimum 50), onClick, spreadable ] [ el [ centerX, centerY ] (text <| String.fromInt <| getAtStone position model) ]
+    column [ Bg.color (rgb255 153 51 51), Border.solid, Border.color (rgb 0 0 0), Border.width 1, Border.rounded 10, height (fill |> minimum 100), width (fill |> minimum 100), onClick, spreadable ] [ el boardTextSetting (text <| String.fromInt <| getAtStone position model) ]
 
 
 viewPointCell : Model -> Player -> Element Msg
 viewPointCell model player =
-    case player of
-        Myself ->
-            column [ height (fill |> minimum 100), width (fillPortion 1 |> minimum 50) ] [ el [ centerX, centerY ] (text <| String.fromInt <| getAtStone (pitNumber // 2) model) ]
+    let
+        pointText =
+            case player of
+                Myself ->
+                    text <| String.fromInt <| getAtStone (pitNumber // 2) model
 
-        Opposite ->
-            column [ height (fill |> minimum 100), width (fillPortion 1 |> minimum 50) ] [ el [ centerX, centerY ] (text <| String.fromInt <| getAtStone 0 model) ]
+                Opposite ->
+                    text <| String.fromInt <| getAtStone 0 model
+    in
+    column [ Bg.color (rgb255 153 51 51), Border.solid, Border.color (rgb 0 0 0), Border.width 1, Border.rounded 10, height (fill |> minimum 100), width (fillPortion 1 |> minimum 50) ] [ el boardTextSetting pointText ]
+
+
+boardTextSetting : List (Attribute msg)
+boardTextSetting =
+    [ centerX, centerY, Font.color (rgb 1 1 1) ]
 
 
 viewProgressDesc : Model -> Element Msg
