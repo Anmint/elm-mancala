@@ -7,6 +7,7 @@ import Element.Background as Bg
 import Element.Border as Border
 import Element.Events as Events
 import Element.Font as Font
+import Element.Input as Input
 import Html exposing (Html)
 
 
@@ -405,9 +406,9 @@ viewProgressDesc model =
             getSummary model
     in
     el [ centerX, Font.size 32 ]
-        (text <|
-            case model.winner of
-                Playing ->
+        (case model.winner of
+            Playing ->
+                text <|
                     (if model.turn == Myself then
                         "わたしの"
 
@@ -416,22 +417,26 @@ viewProgressDesc model =
                     )
                         ++ "ターンです"
 
-                Draw ->
-                    "引き分けでした〜"
+            Draw ->
+                text <| "引き分けでした〜"
 
-                End player ->
-                    (if player == Myself then
-                        "わたしの"
+            End player ->
+                column [ centerX ]
+                    [ text <|
+                        (if player == Myself then
+                            "わたしの"
 
-                     else
-                        "相手の"
-                    )
-                        ++ "勝ちです"
-                        ++ " ("
-                        ++ String.fromInt summary.my
-                        ++ " vs "
-                        ++ String.fromInt summary.opposite
-                        ++ " )"
+                         else
+                            "相手の"
+                        )
+                            ++ "勝ちです"
+                            ++ " ("
+                            ++ String.fromInt summary.my
+                            ++ " vs "
+                            ++ String.fromInt summary.opposite
+                            ++ " )"
+                    , Input.button [] { onPress = Just Initialize, label = text "再戦" }
+                    ]
         )
 
 
