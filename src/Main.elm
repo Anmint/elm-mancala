@@ -9,6 +9,8 @@ import Element.Events as Events
 import Element.Font as Font
 import Element.Input as Input
 import Html exposing (Html)
+import Process
+import Task
 
 
 type Player
@@ -289,6 +291,7 @@ getSummary stage =
 type Msg
     = Spread Int
     | Initialize
+    | TryCapture
     | NoOp
 
 
@@ -296,10 +299,13 @@ update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
         Spread position ->
-            ( spreadStone position model, Cmd.none )
+            ( sowStone position model, Task.perform (always TryCapture) (Process.sleep 100) )
 
         Initialize ->
             initialModel
+
+        TryCapture ->
+            ( model |> captureStone |> setNextTurn |> checkWinner, Cmd.none )
 
         NoOp ->
             ( model, Cmd.none )
@@ -421,7 +427,7 @@ viewProgressDesc model =
                 text <| "引き分けでした〜"
 
             End player ->
-                column [ centerX ]
+                column [ centerY ]
                     [ text <|
                         (if player == Myself then
                             "わたしの"
