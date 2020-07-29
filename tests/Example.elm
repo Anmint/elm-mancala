@@ -12,7 +12,33 @@ suite : Test
 suite =
     describe "Update Stage"
         [ describe "makeSpread"
-            [ describe "sowStone"
+            [ describe "progressSowing"
+                [ test "no stone, no sow" <|
+                    \_ ->
+                        let
+                            initialmodel =
+                                { turn = Myself, field = [ 0, 0, 4, 0, 0, 0, 0, 14, 0, 0, 0, 5, 0, 0 ], lastSown = Just 3, remainStone = 0, winner = Playing }
+                        in
+                        Expect.equal initialmodel (progressSowing initialmodel)
+                , test "no stone, no sow 2" <|
+                    \_ ->
+                        let
+                            initialmodel =
+                                { turn = Myself, field = [ 0, 0, 4, 0, 0, 0, 0, 14, 0, 0, 0, 5, 0, 0 ], lastSown = Nothing, remainStone = 6, winner = Playing }
+                        in
+                        Expect.equal initialmodel (progressSowing initialmodel)
+                , test "sow only one stone" <|
+                    \_ ->
+                        let
+                            initialmodel =
+                                { turn = Myself, field = [ 0, 0, 4, 0, 0, 0, 0, 14, 0, 0, 0, 5, 0, 0 ], lastSown = Just 3, remainStone = 3, winner = Playing }
+
+                            sownmodel =
+                                { turn = Myself, field = [ 0, 0, 4, 0, 1, 0, 0, 14, 0, 0, 0, 5, 0, 0 ], lastSown = Just 4, remainStone = 2, winner = Playing }
+                        in
+                        Expect.equal sownmodel (progressSowing initialmodel)
+                ]
+            , describe "sowStone"
                 [ test "no stone, no sow" <|
                     \_ ->
                         let
@@ -20,7 +46,7 @@ suite =
                                 [ 0, 0, 4, 0, 0, 0, 0, 14, 0, 0, 0, 5, 0, 0 ]
 
                             initialmodel =
-                                { turn = Myself, field = [ 0, 0, 4, 0, 0, 0, 0, 14, 0, 0, 0, 5, 0, 0 ], lastSown = Nothing, winner = Playing }
+                                { turn = Myself, field = [ 0, 0, 4, 0, 0, 0, 0, 14, 0, 0, 0, 5, 0, 0 ], lastSown = Nothing, remainStone = 2, winner = Playing }
                         in
                         Expect.equal noStone (sowStone 4 initialmodel).field
                 , test "normal sowing" <|
@@ -30,7 +56,7 @@ suite =
                                 [ 0, 0, 0, 1, 1, 1, 1, 0, 14, 0, 0, 5, 0, 0 ]
 
                             initialmodel =
-                                { turn = Myself, field = [ 0, 0, 4, 0, 0, 0, 0, 0, 14, 0, 0, 5, 0, 0 ], lastSown = Nothing, winner = Playing }
+                                { turn = Myself, field = [ 0, 0, 4, 0, 0, 0, 0, 0, 14, 0, 0, 5, 0, 0 ], lastSown = Nothing, remainStone = 2, winner = Playing }
                         in
                         Expect.equal normalSowing (sowStone 2 initialmodel).field
                 , test "circled sowing" <|
@@ -40,7 +66,7 @@ suite =
                                 [ 1, 1, 5, 0, 0, 0, 0, 0, 14, 0, 0, 0, 1, 1 ]
 
                             initialmodel =
-                                { turn = Myself, field = [ 0, 0, 4, 0, 0, 0, 0, 0, 14, 0, 0, 5, 0, 0 ], lastSown = Nothing, winner = Playing }
+                                { turn = Myself, field = [ 0, 0, 4, 0, 0, 0, 0, 0, 14, 0, 0, 5, 0, 0 ], lastSown = Nothing, remainStone = 2, winner = Playing }
                         in
                         Expect.equal circledSowing (sowStone 11 initialmodel).field
                 , test "overlapped sowing" <|
@@ -50,7 +76,7 @@ suite =
                                 [ 1, 1, 5, 1, 1, 1, 1, 1, 1, 1, 1, 6, 1, 1 ]
 
                             initialmodel =
-                                { turn = Myself, field = [ 0, 0, 4, 0, 0, 0, 0, 0, 14, 0, 0, 5, 0, 0 ], lastSown = Nothing, winner = Playing }
+                                { turn = Myself, field = [ 0, 0, 4, 0, 0, 0, 0, 0, 14, 0, 0, 5, 0, 0 ], lastSown = Nothing, remainStone = 2, winner = Playing }
                         in
                         Expect.equal overlappedSowing (sowStone 8 initialmodel).field
                 ]
@@ -62,7 +88,7 @@ suite =
                                 [ 0, 0, 4, 0, 1, 0, 0, 3, 14, 0, 0, 5, 0, 0 ]
 
                             initialmodel =
-                                { turn = Myself, field = [ 0, 0, 4, 0, 1, 0, 0, 0, 14, 0, 3, 5, 0, 0 ], lastSown = Just 4, winner = Playing }
+                                { turn = Myself, field = [ 0, 0, 4, 0, 1, 0, 0, 0, 14, 0, 3, 5, 0, 0 ], lastSown = Just 4, remainStone = 2, winner = Playing }
                         in
                         Expect.equal capturedField (captureStone initialmodel).field
                 , test "The last stone is sown in the opposite side, capture will not occur" <|
@@ -72,7 +98,7 @@ suite =
                                 [ 1, 1, 4, 1, 1, 0, 0, 0, 14, 0, 3, 5, 0, 1 ]
 
                             initialmodel =
-                                { turn = Opposite, field = [ 1, 1, 4, 1, 1, 0, 0, 0, 14, 0, 3, 5, 0, 1 ], lastSown = Just 4, winner = Playing }
+                                { turn = Opposite, field = [ 1, 1, 4, 1, 1, 0, 0, 0, 14, 0, 3, 5, 0, 1 ], lastSown = Just 4, remainStone = 2, winner = Playing }
                         in
                         Expect.equal notCapturedField (captureStone initialmodel).field
                 , test "The last stone is sown in a goal pit, capture will not occur" <|
@@ -82,7 +108,7 @@ suite =
                                 [ 1, 0, 4, 0, 0, 0, 0, 4, 14, 0, 3, 5, 0, 1 ]
 
                             initialmodel =
-                                { turn = Opposite, field = [ 1, 0, 4, 0, 0, 0, 0, 4, 14, 0, 3, 5, 0, 1 ], lastSown = Just 0, winner = Playing }
+                                { turn = Opposite, field = [ 1, 0, 4, 0, 0, 0, 0, 4, 14, 0, 3, 5, 0, 1 ], lastSown = Just 0, remainStone = 2, winner = Playing }
                         in
                         Expect.equal notCapturedField (captureStone initialmodel).field
                 ]
@@ -94,7 +120,7 @@ suite =
                                 Myself
 
                             initialmodel =
-                                { turn = Myself, field = [ 0, 0, 4, 0, 1, 1, 1, 1, 14, 0, 3, 5, 0, 0 ], lastSown = Just 7, winner = Playing }
+                                { turn = Myself, field = [ 0, 0, 4, 0, 1, 1, 1, 1, 14, 0, 3, 5, 0, 0 ], lastSown = Just 7, remainStone = 2, winner = Playing }
                         in
                         Expect.equal whoIsNextTurn (setNextTurn initialmodel).turn
                 , test "If not, next turn is opposite" <|
@@ -104,7 +130,7 @@ suite =
                                 Opposite
 
                             initialmodel =
-                                { turn = Myself, field = [ 0, 0, 4, 0, 1, 1, 1, 0, 14, 0, 3, 5, 0, 0 ], lastSown = Just 6, winner = Playing }
+                                { turn = Myself, field = [ 0, 0, 4, 0, 1, 1, 1, 0, 14, 0, 3, 5, 0, 0 ], lastSown = Just 6, remainStone = 2, winner = Playing }
                         in
                         Expect.equal whoIsNextTurn (setNextTurn initialmodel).turn
                 ]

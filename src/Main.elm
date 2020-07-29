@@ -28,6 +28,7 @@ type alias Stage =
     { turn : Player
     , field : List Int
     , lastSown : Maybe Int -- Point out last position of sowing
+    , remainStone : Int
     , winner : Winner
     }
 
@@ -57,7 +58,7 @@ initializeStage pit stone =
         initialField =
             0 :: List.repeat (pit // 2 - 1) stone |> List.append (0 :: List.repeat (pit // 2 - 1) stone)
     in
-    { turn = Myself, field = initialField, lastSown = Nothing, winner = Playing }
+    { turn = Myself, field = initialField, lastSown = Nothing, remainStone = 0, winner = Playing }
 
 
 
@@ -95,6 +96,27 @@ sowStone position stage =
                 modBy pitNumber (num + position)
         in
         { stage | field = newField, lastSown = Just lastPosition }
+
+
+progressSowing : Stage -> Stage
+progressSowing stage =
+    case stage.lastSown of
+        Nothing ->
+            stage
+
+        Just i ->
+            if stage.remainStone == 0 then
+                stage
+
+            else if stage.lastSown == Nothing then
+                stage
+
+            else
+                let
+                    addedList =
+                        List.repeat (i + 1) 0 ++ [ 1 ] ++ List.repeat (pitNumber - i + 2) 0
+                in
+                { stage | field = List.map2 (+) stage.field addedList, lastSown = Just (modBy pitNumber (i + 1)), remainStone = stage.remainStone - 1 }
 
 
 
