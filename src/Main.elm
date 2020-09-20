@@ -98,6 +98,30 @@ sowStone position stage =
         { stage | field = newField, lastSown = Just lastPosition }
 
 
+prepareSowing : Int -> Stage -> Stage
+prepareSowing position stage =
+    if position == 0 || position == pitNumber // 2 then
+        stage
+
+    else
+        let
+            takenStone =
+                case stage.field |> Array.fromList |> Array.get position of
+                    Nothing ->
+                        0
+
+                    Just i ->
+                        i
+
+            preparedField =
+                stage.field
+                    |> Array.fromList
+                    |> Array.set position 0
+                    |> Array.toList
+        in
+        { stage | field = preparedField, lastSown = Just position, remainStone = takenStone }
+
+
 progressSowing : Stage -> Stage
 progressSowing stage =
     case stage.lastSown of
@@ -114,7 +138,10 @@ progressSowing stage =
             else
                 let
                     addedList =
-                        List.repeat (i + 1) 0 ++ [ 1 ] ++ List.repeat (pitNumber - i + 2) 0
+                        List.repeat pitNumber 0
+                            |> Array.fromList
+                            |> Array.set (modBy pitNumber (i + 1)) 1
+                            |> Array.toList
                 in
                 { stage | field = List.map2 (+) stage.field addedList, lastSown = Just (modBy pitNumber (i + 1)), remainStone = stage.remainStone - 1 }
 
@@ -321,7 +348,17 @@ update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
         Spread position ->
-            ( sowStone position model, Task.perform (always TryCapture) (Process.sleep 100) )
+            --            ( sowStone position model, Task.perform (always TryCapture) (Process.sleep 100) )
+            case model.lastSown of
+                Nothing ->
+                    ( prepareSowing position model, Task.perform (always (Spread position)) (Task.succeed ()) )
+
+                Just _ ->
+                    if model.remainStone /= 0 then
+                        ( progressSowing model, Task.perform (always (Spread position)) (Process.sleep 100) )
+
+                    else
+                        update TryCapture model
 
         Initialize ->
             initialModel
@@ -341,7 +378,7 @@ view model =
 viewStage : Model -> Element Msg
 viewStage model =
     column [ spacing 10, width fill ]
-        [ el [ centerX, Font.size 32 ] (text "Mancala the World")
+        [ el [ centerX, Font.size 32 ] (text "Mancala Kalah")
         , row
             [ Bg.color (rgb255 102 51 51), Border.rounded 20, padding 20, spacing 5, width fill ]
             [ viewPointCell model Opposite

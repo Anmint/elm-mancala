@@ -37,6 +37,16 @@ suite =
                                 { turn = Myself, field = [ 0, 0, 4, 0, 1, 0, 0, 14, 0, 0, 0, 5, 0, 0 ], lastSown = Just 4, remainStone = 2, winner = Playing }
                         in
                         Expect.equal sownmodel (progressSowing initialmodel)
+                , test "If stone is sown in the last pit, next will be back to zero" <|
+                    \_ ->
+                        let
+                            initialmodel =
+                                { turn = Myself, field = [ 0, 0, 4, 0, 0, 0, 0, 14, 0, 0, 0, 5, 0, 0 ], lastSown = Just 13, remainStone = 3, winner = Playing }
+
+                            sownmodel =
+                                { turn = Myself, field = [ 1, 0, 4, 0, 0, 0, 0, 14, 0, 0, 0, 5, 0, 0 ], lastSown = Just 0, remainStone = 2, winner = Playing }
+                        in
+                        Expect.equal sownmodel (progressSowing initialmodel)
                 ]
             , describe "sowStone"
                 [ test "no stone, no sow" <|
